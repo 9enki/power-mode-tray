@@ -139,6 +139,11 @@ for the version resource and the application manifest.
 | `winget/` / `msix/` | Generation of the distribution packages (winget manifests, MSIX) |
 | `.github/workflows/` | CI and release automation |
 
+## Privacy
+
+The app collects no data, makes no network connections, and writes nothing to the registry or disk.
+See [PRIVACY.md](PRIVACY.md).
+
 ## License
 
 MIT License
