@@ -1,0 +1,79 @@
+﻿name: Release
+
+# Cargo.toml の version を上げてコミットし、同じ番号のタグ（v1.2.3）を push すると
+#   1. テストとビルド
+#   2. GitHub Release を作成（exe / zip / msix / SHA256SUMS を添付）
+#   3. winget マニフェストを生成し、リポジトリの secret WINGET_TOKEN があれば microsoft/winget-pkgs へ PR を出す
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: タグと Cargo.toml の version の一致を確認
+        shell: powershell
+        run: |
+          # インラインの PowerShell は ASCII のみにする（ランナーの Windows PowerShell 5.1 が UTF-8 を誤読するため）
+          $tag = $env:GITHUB_REF_NAME.TrimStart('v')
+          . .\scripts\common.ps1
+          $ver = Get-ProjectVersion
+          if ($tag -ne $ver) { throw "tag v$tag does not match Cargo.toml version ($ver)" }
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: テスト
+        shell: powershell
+        run: .\test.ps1
+
+      - name: ビルド
+        shell: powershell
+        run: .\build.ps1
+
+      - name: MSIX パッケージ（仮 Identity。Store 提出時は Partner Center の値で作り直す）
+        shell: powershell
+        run: .\build-msix.ps1 -NoBuild
+
+      - name: 配布物を作成
+        shell: powershell
+        run: |
+          . .\scripts\common.ps1
+          $ver = Get-ProjectVersion
+          Copy-Item bin\PowerModeTray.exe dist\
+          Compress-Archive -Path bin\PowerModeTray.exe, README.md, LICENSE -DestinationPath "dist\PowerModeTray-$ver.zip" -Force
+          Get-ChildItem dist -File | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          .\winget\make-manifests.ps1 -Version $ver -Sha256 (Get-FileHash bin\PowerModeTray.exe -Algorithm SHA256).Hash
+          Get-Content dist\SHA256SUMS.txt
+
+      - name: GitHub Release を作成
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          . .\scripts\common.ps1
+          $ver = Get-ProjectVersion
+          $files = Get-ChildItem dist -File | ForEach-Object { $_.FullName }
+          gh release create "v$ver" @files --title "PowerModeTray v$ver" --generate-notes
+
+      - name: winget マニフェストを成果物として保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests
+          path: winget/out/**
+
+      - name: winget-pkgs へ PR を提出（WINGET_TOKEN がある場合のみ）
+        if: env.WINGET_TOKEN != ''
+        shell: powershell
+        run: |
+          . .\scripts\common.ps1
+          $ver = Get-ProjectVersion
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe submit --token $env:WINGET_TOKEN --prtitle "9enki.PowerModeTray version $ver" "winget\out\manifests\9\9enki\PowerModeTray\$ver"

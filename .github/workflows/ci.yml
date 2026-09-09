@@ -1,0 +1,37 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+
+      - name: テスト
+        shell: powershell
+        run: .\test.ps1
+
+      - name: ビルド
+        shell: powershell
+        run: .\build.ps1
+
+      - name: MSIX パッケージ（仮 Identity）
+        shell: powershell
+        run: .\build-msix.ps1 -NoBuild
+
+      - name: winget マニフェスト
+        shell: powershell
+        run: .\winget\make-manifests.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PowerModeTray
+          path: |
+            bin/PowerModeTray.exe
+            dist/*.msix
+            winget/out/**
