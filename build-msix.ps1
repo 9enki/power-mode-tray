@@ -6,6 +6,7 @@ param(
     [string]$IdentityName = 'PLACEHOLDER.PowerModeTray',
     [string]$Publisher = 'CN=PLACEHOLDER',
     [string]$PublisherDisplayName = '9enki',
+    [string]$OutDir = 'dist',
     [switch]$NoBuild
 )
 $ErrorActionPreference = 'Stop'
@@ -22,7 +23,7 @@ if (-not (Test-Path .\bin\PowerModeTray.exe)) { throw 'bin\PowerModeTray.exe が
 $makeappx = Get-WindowsKitTool 'makeappx.exe'
 $stage = Join-Path $PSScriptRoot 'obj\msix'
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $stage, dist | Out-Null
+New-Item -ItemType Directory -Force -Path $stage, $OutDir | Out-Null
 
 Copy-Item .\bin\PowerModeTray.exe $stage
 & .\msix\make-assets.ps1 -OutDir (Join-Path $stage 'Assets')
@@ -34,7 +35,7 @@ Copy-Item .\bin\PowerModeTray.exe $stage
     -replace '__VERSION__', $ver |
     Set-Content (Join-Path $stage 'AppxManifest.xml') -Encoding UTF8
 
-$out = Join-Path $PSScriptRoot "dist\PowerModeTray_$ver.msix"
+$out = Join-Path $OutDir "PowerModeTray_$ver.msix"
 & $makeappx pack /d $stage /p $out /o
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

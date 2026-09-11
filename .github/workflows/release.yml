@@ -2,8 +2,13 @@
 
 # Cargo.toml の version を上げてコミットし、同じ番号のタグ（v1.2.3）を push すると
 #   1. テストとビルド
-#   2. GitHub Release を作成（exe / zip / msix / SHA256SUMS を添付）
+#   2. GitHub Release を作成（exe / zip / SHA256SUMS を添付）
 #   3. winget マニフェストを生成し、リポジトリの secret WINGET_TOKEN があれば microsoft/winget-pkgs へ PR を出す
+#   4. Store の Identity を示す変数が設定されていれば、提出用 MSIX を成果物として残す
+#
+# MSIX は Partner Center へ直接アップロードするものなので Release には添付しない。
+# 署名は Store が行うため、リポジトリ変数 STORE_IDENTITY_NAME / STORE_PUBLISHER /
+# STORE_PUBLISHER_DISPLAY_NAME（Partner Center の 製品の管理 > 製品 ID の値）を設定すると生成される。
 on:
   push:
     tags: ['v*']
@@ -16,6 +21,9 @@ jobs:
     runs-on: windows-latest
     env:
       WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+      STORE_IDENTITY_NAME: ${{ vars.STORE_IDENTITY_NAME }}
+      STORE_PUBLISHER: ${{ vars.STORE_PUBLISHER }}
+      STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.STORE_PUBLISHER_DISPLAY_NAME }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,10 +45,6 @@ jobs:
       - name: ビルド
         shell: powershell
         run: .\build.ps1
-
-      - name: MSIX パッケージ（仮 Identity。Store 提出時は Partner Center の値で作り直す）
-        shell: powershell
-        run: .\build-msix.ps1 -NoBuild
 
       - name: 配布物を作成
         shell: powershell
@@ -68,6 +72,22 @@ jobs:
         with:
           name: winget-manifests
           path: winget/out/**
+
+      - name: Store 提出用 MSIX を作成（Identity が設定されている場合のみ）
+        if: env.STORE_IDENTITY_NAME != '' && env.STORE_PUBLISHER != ''
+        shell: powershell
+        run: |
+          .\build-msix.ps1 -NoBuild -OutDir dist\msix `
+            -IdentityName $env:STORE_IDENTITY_NAME `
+            -Publisher $env:STORE_PUBLISHER `
+            -PublisherDisplayName $env:STORE_PUBLISHER_DISPLAY_NAME
+
+      - name: MSIX を成果物として保存
+        if: env.STORE_IDENTITY_NAME != '' && env.STORE_PUBLISHER != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: msix-for-store
+          path: dist/msix/*.msix
 
       - name: winget-pkgs へ PR を提出（WINGET_TOKEN がある場合のみ）
         if: env.WINGET_TOKEN != ''

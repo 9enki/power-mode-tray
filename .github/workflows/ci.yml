@@ -20,9 +20,9 @@ jobs:
         shell: powershell
         run: .\build.ps1
 
-      - name: MSIX パッケージ（仮 Identity）
+      - name: MSIX パッケージの構成確認（仮 Identity。配布はしない）
         shell: powershell
-        run: .\build-msix.ps1 -NoBuild
+        run: .\build-msix.ps1 -NoBuild -OutDir dist\msix
 
       - name: winget マニフェスト
         shell: powershell
@@ -33,5 +33,4 @@ jobs:
           name: PowerModeTray
           path: |
             bin/PowerModeTray.exe
-            dist/*.msix
             winget/out/**
