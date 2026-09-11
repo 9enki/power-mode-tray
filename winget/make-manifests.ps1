@@ -46,9 +46,6 @@ Installers:
 - Architecture: x64
   InstallerUrl: $url
   InstallerSha256: $Sha256
-- Architecture: arm64
-  InstallerUrl: $url
-  InstallerSha256: $Sha256
 ManifestType: installer
 ManifestVersion: 1.9.0
 "@ | Set-Content (Join-Path $outDir "$id.installer.yaml") -Encoding UTF8
