@@ -5,6 +5,8 @@
 A tiny tray app that cycles the Windows 11 power mode (Settings > System > Power & battery > Power mode)
 with a single click on the tray icon or a hotkey.
 
+![The right-click menu, showing the three power modes, the hotkey and the auto-start toggle](docs/screenshot-menu.png)
+
 - **Left click / hotkey**: Best power efficiency → Balanced → Best performance → Best power efficiency …
 - **Right click**: pick a mode directly, see the current hotkey, turn "Start with Windows" on or off, or quit
 - The icon is a gauge from the standard Windows icon font (Segoe Fluent Icons). The needle position shows the mode: left for efficiency, center for balanced, right for performance
@@ -33,6 +35,8 @@ PowerModeTray.exe [--hotkey <key>]
 - A second instance exits silently. To change arguments, quit from the right-click menu first, then start it again
 - Only the current power source (plugged in or on battery) is changed, matching the Settings app
 - Nothing changes while Energy Saver is active. Turning it off restores normal behavior. The state comes from both a power setting notification and `GetSystemPowerStatus`
+
+![The tray icon in its three states, with the needle moving from efficiency to performance](docs/screenshot-icons.png)
 
 ### Languages
 
