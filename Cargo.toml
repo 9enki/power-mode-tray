@@ -1,6 +1,6 @@
 [package]
 name = "power-mode-tray"
-version = "2.2.0"
+version = "2.2.1"
 edition = "2021"
 description = "Windows 11 の電源モードをトレイアイコンのクリックやホットキーで切り替える最小アプリ"
 license = "MIT"
