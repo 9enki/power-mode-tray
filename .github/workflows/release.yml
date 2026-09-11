@@ -51,6 +51,8 @@ jobs:
         run: |
           . .\scripts\common.ps1
           $ver = Get-ProjectVersion
+          # MSIX の生成を別ステップに移したので、ここで dist を用意する
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item bin\PowerModeTray.exe dist\
           Compress-Archive -Path bin\PowerModeTray.exe, README.md, LICENSE -DestinationPath "dist\PowerModeTray-$ver.zip" -Force
           Get-ChildItem dist -File | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name } | Set-Content dist\SHA256SUMS.txt -Encoding ascii
