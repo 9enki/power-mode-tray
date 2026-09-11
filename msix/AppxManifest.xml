@@ -13,7 +13,7 @@
   <Identity Name="__IDENTITY_NAME__"
             Publisher="__PUBLISHER__"
             Version="__VERSION__.0"
-            ProcessorArchitecture="neutral" />
+            ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>PowerModeTray</DisplayName>
