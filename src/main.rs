@@ -12,6 +12,7 @@
 //!                アイコンを葉付きバッテリーに変え、ツールチップとメニューで理由を示す
 //!   自動起動   : 右クリックメニューでいつでも切り替えられる。有効にしたときだけ
 //!                ユーザー単位の Run キーに値を 1 つ書く（既定は無効）
+//!   表示言語   : Windows の表示言語に合わせる（11 言語、未対応なら英語）。--lang で固定できる
 //!
 //! 切り替え対象は設定アプリと同じく「現在の電源（AC 接続時 / バッテリー駆動時）」側のみ。
 
@@ -19,6 +20,7 @@
 
 mod cli;
 mod hotkey;
+mod i18n;
 mod power;
 mod startup;
 mod tray;
@@ -44,7 +46,6 @@ use hotkey::HotkeySpec;
 use tray::glyph;
 use win::{hiword, loword, wide};
 
-const SAVER_NOTICE: &str = "バッテリー節約機能が有効のため切り替えできません";
 const MOD_NOREPEAT: u32 = 0x4000; // 押しっぱなしで連続発火させない
 const HOTKEY_ID: i32 = 1;
 const TIMER_ID: usize = 1;
@@ -63,16 +64,21 @@ extern "system" {
 
 struct Mode {
     id: GUID,
-    name: &'static str,
     glyph: char,
 }
 
 // 設定アプリの 3 択と、Windows 標準アイコンフォントのゲージ（針が 左 / 中央 / 右）
 const MODES: [Mode; 3] = [
-    Mode { id: power::BEST_EFFICIENCY, name: "最適な電力効率", glyph: glyph::SPEED_LOW },
-    Mode { id: power::BALANCED, name: "バランス", glyph: glyph::SPEED_MEDIUM },
-    Mode { id: power::BEST_PERFORMANCE, name: "最適なパフォーマンス", glyph: glyph::SPEED_HIGH },
+    Mode { id: power::BEST_EFFICIENCY, glyph: glyph::SPEED_LOW },
+    Mode { id: power::BALANCED, glyph: glyph::SPEED_MEDIUM },
+    Mode { id: power::BEST_PERFORMANCE, glyph: glyph::SPEED_HIGH },
 ];
+
+/// 表示言語に合わせたモード名。MODES と同じ並び。
+fn mode_name(index: usize) -> &'static str {
+    let s = i18n::s();
+    [s.mode_best_efficiency, s.mode_balanced, s.mode_best_performance][index]
+}
 const BALANCED_INDEX: usize = 1;
 
 /// 最後にトレイへ反映した状態。変化が無ければ描き直さない。
@@ -117,13 +123,14 @@ fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    i18n::init(cli::prescan_lang(&args)); // 引数エラーも指定した言語で出すため、解釈より先に決める
     let hotkey = match cli::parse(&args) {
         Err(msg) => {
-            message_box(&format!("{}\n\n{}", msg, cli::USAGE), MB_ICONERROR);
+            message_box(&format!("{}\n\n{}", msg, i18n::s().usage), MB_ICONERROR);
             std::process::exit(2);
         }
         Ok(Command::Help) => {
-            message_box(cli::USAGE, MB_ICONINFORMATION);
+            message_box(i18n::s().usage, MB_ICONINFORMATION);
             return;
         }
         Ok(Command::Run { hotkey }) => hotkey,
@@ -160,7 +167,7 @@ unsafe fn run(hotkey: Option<HotkeySpec>) {
         0, 0, 0, 0, null_mut(), null_mut(), hinstance, null(),
     );
     if hwnd.is_null() {
-        message_box("ウィンドウを作成できませんでした。", MB_ICONERROR);
+        message_box(i18n::s().window_failed, MB_ICONERROR);
         std::process::exit(1);
     }
 
@@ -168,14 +175,15 @@ unsafe fn run(hotkey: Option<HotkeySpec>) {
         Some(spec) => format!("--hotkey {}", spec.display),
         None => "--hotkey none".to_string(),
     };
-    let mut hotkey_label = "ホットキー: なし".to_string();
+    let text = i18n::s();
+    let mut hotkey_label = text.hotkey_none.to_string();
     let mut hotkey_warning = None;
     if let Some(spec) = &hotkey {
         if RegisterHotKey(hwnd, HOTKEY_ID, spec.modifiers | MOD_NOREPEAT, spec.vk) != 0 {
-            hotkey_label = format!("ホットキー: {}", spec.display);
+            hotkey_label = i18n::fill(text.hotkey_label, &spec.display);
         } else {
-            hotkey_label = format!("ホットキー: {}（登録失敗）", spec.display);
-            hotkey_warning = Some(format!("ホットキー {} は他のアプリが使用中のため登録できませんでした。", spec.display));
+            hotkey_label = i18n::fill(text.hotkey_label_failed, &spec.display);
+            hotkey_warning = Some(i18n::fill(text.hotkey_in_use, &spec.display));
         }
     }
 
@@ -201,7 +209,7 @@ unsafe fn run(hotkey: Option<HotkeySpec>) {
 
     refresh(true);
     if let Some(warning) = hotkey_warning {
-        tray::notify(hwnd, "電源モード", &warning, true);
+        tray::notify(hwnd, i18n::s().notify_title, &warning, true);
     }
     SetTimer(hwnd, TIMER_ID, TIMER_INTERVAL_MS, None);
 
@@ -286,7 +294,7 @@ fn apply(index: usize) {
     let rc = power::set_overlay(MODES[index].id);
     if rc != 0 {
         if let Some(hwnd) = with_app(|a| a.hwnd) {
-            tray::notify(hwnd, "電源モード", &format!("切り替えに失敗しました (エラー {})", rc), true);
+            tray::notify(hwnd, i18n::s().notify_title, &i18n::fill(i18n::s().switch_failed, &rc.to_string()), true);
         }
     }
     refresh(false);
@@ -308,8 +316,10 @@ fn refresh(force: bool) {
             return;
         }
 
-        let name = index.map_or("不明", |i| MODES[i].name);
-        let tip = if saver { format!("電源モード: {}\n{}", name, SAVER_NOTICE) } else { format!("電源モード: {}", name) };
+        let text = i18n::s();
+        let name = index.map_or(text.mode_unknown, mode_name);
+        let tip = i18n::fill(text.tooltip, name);
+        let tip = if saver { format!("{}\n{}", tip, text.saver_notice) } else { tip };
         let alpha = if saver || index.is_some() { 255 } else { 110 }; // 不明なモードは薄く
         let size = unsafe { GetSystemMetrics(SM_CXSMICON) }; // 100%:16px, 150%:24px
         let icon = tray::render_icon(glyph, size, &a.font, light, alpha);
@@ -357,14 +367,15 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
     let startup_on = startup::is_enabled();
 
     unsafe {
+        let text = i18n::s();
         let menu = CreatePopupMenu();
         if saver {
-            AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, wide(SAVER_NOTICE).as_ptr());
+            AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, wide(text.saver_notice).as_ptr());
             AppendMenuW(menu, MF_SEPARATOR, 0, null());
         }
-        for (i, mode) in MODES.iter().enumerate() {
+        for i in 0..MODES.len() {
             let flags = if saver { MF_STRING | MF_GRAYED } else { MF_STRING };
-            AppendMenuW(menu, flags, (CMD_MODE_BASE + i as u32) as usize, wide(mode.name).as_ptr());
+            AppendMenuW(menu, flags, (CMD_MODE_BASE + i as u32) as usize, wide(mode_name(i)).as_ptr());
         }
         if let Some(i) = index {
             CheckMenuRadioItem(menu, CMD_MODE_BASE, CMD_MODE_BASE + 2, CMD_MODE_BASE + i as u32, MF_BYCOMMAND);
@@ -372,9 +383,9 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
         AppendMenuW(menu, MF_SEPARATOR, 0, null());
         AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, wide(&hotkey_label).as_ptr());
         let startup_flags = if startup_on { MF_STRING | MF_CHECKED } else { MF_STRING };
-        AppendMenuW(menu, startup_flags, CMD_STARTUP as usize, wide("Windows 起動時に実行").as_ptr());
+        AppendMenuW(menu, startup_flags, CMD_STARTUP as usize, wide(text.menu_startup).as_ptr());
         AppendMenuW(menu, MF_SEPARATOR, 0, null());
-        AppendMenuW(menu, MF_STRING, CMD_EXIT as usize, wide("終了").as_ptr());
+        AppendMenuW(menu, MF_STRING, CMD_EXIT as usize, wide(text.menu_exit).as_ptr());
 
         SetForegroundWindow(hwnd); // メニュー外をクリックしたときに閉じるために必要
         let cmd = TrackPopupMenuEx(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY, x, y, hwnd, null()) as u32;
@@ -394,13 +405,14 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
 
 /// 自動起動の有効・無効を切り替える。
 fn toggle_startup(hwnd: HWND, currently_on: bool, args: &str) {
+    let text = i18n::s();
     let ok = if currently_on { startup::disable() } else { startup::enable(args) };
     if !ok {
-        tray::notify(hwnd, "電源モード", "自動起動の設定を変更できませんでした。", true);
+        tray::notify(hwnd, text.notify_title, text.startup_failed, true);
     } else if currently_on {
-        tray::notify(hwnd, "電源モード", "Windows 起動時に実行しません。", false);
+        tray::notify(hwnd, text.notify_title, text.startup_off, false);
     } else {
-        tray::notify(hwnd, "電源モード", "Windows 起動時に実行します。", false);
+        tray::notify(hwnd, text.notify_title, text.startup_on, false);
     }
 }
 

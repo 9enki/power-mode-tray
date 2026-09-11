@@ -11,6 +11,7 @@ with a single click on the tray icon or a hotkey.
 - Follows changes made elsewhere, such as the Settings app, switching between AC and battery, or changing the light/dark theme
 - While Windows Energy Saver is active, no click, hotkey, or menu item changes the mode, matching the Settings app. The icon becomes a battery with a leaf, and both the tooltip and the menu explain why
 - A single executable of about 140 KB written in Rust against the Win32 API only. No GUI framework, no extra runtime, and about 2 MB of private memory while resident
+- Speaks 11 languages and follows the Windows display language
 - No administrator rights. Nothing is written to disk, and the only registry write is the opt-in "Start with Windows" entry
 
 ## Usage
@@ -24,6 +25,7 @@ PowerModeTray.exe [--hotkey <key>]
 | (none) | The hotkey is `Ctrl+Alt+P` |
 | `--hotkey Ctrl+Shift+F12` | Change the hotkey. Modifiers are `Ctrl` / `Alt` / `Shift` / `Win`, and keys include `A-Z` / `0-9` / `F1-F24` (`F1-F24` also work on their own) |
 | `--hotkey none` | Run without a hotkey |
+| `--lang en` | Force the interface language instead of following Windows |
 | `--help` | Show this help |
 
 - Each press advances the mode by one, exactly like a left click
@@ -31,6 +33,15 @@ PowerModeTray.exe [--hotkey <key>]
 - A second instance exits silently. To change arguments, quit from the right-click menu first, then start it again
 - Only the current power source (plugged in or on battery) is changed, matching the Settings app
 - Nothing changes while Energy Saver is active. Turning it off restores normal behavior. The state comes from both a power setting notification and `GetSystemPowerStatus`
+
+### Languages
+
+The interface follows the Windows display language and falls back to English for anything not listed:
+English, Japanese, Chinese (Simplified and Traditional), Korean, German, French, Spanish, Portuguese, Italian and Russian.
+Pass `--lang <code>` to pick one yourself, for example `--lang en` on a Japanese system.
+
+Power mode names follow the wording the Windows Settings app uses. Translations other than English and Japanese
+were produced without a native speaker review, so corrections are welcome as issues or pull requests.
 
 ### Starting with Windows
 
@@ -143,6 +154,7 @@ for the version resource and the application manifest.
 | `src/tray.rs` | Icon rendering (icon-font glyphs drawn with GDI) and Shell_NotifyIcon |
 | `src/power.rs` | Reading and writing the power mode via powrprof.dll, plus the Energy Saver state |
 | `src/hotkey.rs` / `src/cli.rs` | Hotkey notation and command-line parsing, with unit tests |
+| `src/i18n.rs` | Interface strings for every supported language and the language detection |
 | `src/startup.rs` | Reading and writing the "Start with Windows" entry |
 | `build.rs` / `app.manifest` | Embeds the version resource and the manifest declaring no elevation and per-monitor DPI awareness |
 | `Cargo.toml` | Dependencies and version |

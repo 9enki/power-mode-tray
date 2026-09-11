@@ -1,5 +1,7 @@
 //! "Ctrl+Alt+P" のような文字列をグローバルホットキーの指定に変換する。
 
+use crate::i18n;
+
 // RegisterHotKey の fsModifiers
 pub const MOD_ALT: u32 = 0x0001;
 pub const MOD_CONTROL: u32 = 0x0002;
@@ -24,7 +26,7 @@ impl HotkeySpec {
     pub fn parse(text: &str) -> Result<Option<HotkeySpec>, String> {
         let trimmed = text.trim();
         if trimmed.is_empty() {
-            return Err("ホットキーが空です。".to_string());
+            return Err(i18n::s().hotkey_empty.to_string());
         }
         if trimmed.eq_ignore_ascii_case("none") {
             return Ok(None);
@@ -35,22 +37,16 @@ impl HotkeySpec {
         for token in &parts[..parts.len() - 1] {
             match parse_modifier(token) {
                 Some(m) => modifiers |= m,
-                None => {
-                    return Err(format!(
-                        "修飾キーとして解釈できません: '{}'（Ctrl / Alt / Shift / Win のいずれか）",
-                        token
-                    ))
-                }
+                None => return Err(i18n::fill(i18n::s().hotkey_bad_modifier, token)),
             }
         }
 
         let key_text = parts[parts.len() - 1];
-        let (vk, name) = parse_key(key_text)
-            .ok_or_else(|| format!("キーとして解釈できません: '{}'（A-Z / 0-9 / F1-F24 など）", key_text))?;
+        let (vk, name) = parse_key(key_text).ok_or_else(|| i18n::fill(i18n::s().hotkey_bad_key, key_text))?;
 
         let function_key = (VK_F1..=VK_F24).contains(&vk);
         if modifiers == 0 && !function_key {
-            return Err("Ctrl / Alt / Shift / Win のいずれかと組み合わせてください（F1-F24 は単独でも可）。".to_string());
+            return Err(i18n::s().hotkey_needs_modifier.to_string());
         }
 
         Ok(Some(HotkeySpec { modifiers, vk, display: build_display(modifiers, &name) }))
