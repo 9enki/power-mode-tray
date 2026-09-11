@@ -10,6 +10,8 @@
 //!   アイコン   : Windows 標準アイコンフォントのゲージ。針が 左=電力効率 / 中央=バランス / 右=パフォーマンス
 //!   節約機能   : Windows のバッテリー節約機能が有効な間は設定アプリと同じく切り替え不可。
 //!                アイコンを葉付きバッテリーに変え、ツールチップとメニューで理由を示す
+//!   自動起動   : 右クリックメニューでいつでも切り替えられる。有効にしたときだけ
+//!                ユーザー単位の Run キーに値を 1 つ書く（既定は無効）
 //!
 //! 切り替え対象は設定アプリと同じく「現在の電源（AC 接続時 / バッテリー駆動時）」側のみ。
 
@@ -18,6 +20,7 @@
 mod cli;
 mod hotkey;
 mod power;
+mod startup;
 mod tray;
 mod win;
 
@@ -49,6 +52,7 @@ const TIMER_INTERVAL_MS: u32 = 2000; // 設定アプリなど外部での変更�
 const PBT_APMPOWERSTATUSCHANGE: usize = 0x000A;
 const PBT_POWERSETTINGCHANGE: usize = 0x8013;
 const CMD_MODE_BASE: u32 = 1; // メニューのモード項目は 1, 2, 3
+const CMD_STARTUP: u32 = 9;
 const CMD_EXIT: u32 = 10;
 const NIN_KEYSELECT: u32 = NIN_SELECT | 0x1; // キーボードでの選択（NIN_SELECT | NINF_KEY）
 
@@ -84,6 +88,8 @@ struct App {
     hwnd: HWND,
     hotkey: Option<HotkeySpec>,
     hotkey_label: String,
+    /// 自動起動の Run キーに書く引数。今の起動引数をそのまま引き継ぐ
+    startup_args: String,
     font: Vec<u16>,
     icon: HICON,
     icon_added: bool,
@@ -158,6 +164,10 @@ unsafe fn run(hotkey: Option<HotkeySpec>) {
         std::process::exit(1);
     }
 
+    let startup_args = match &hotkey {
+        Some(spec) => format!("--hotkey {}", spec.display),
+        None => "--hotkey none".to_string(),
+    };
     let mut hotkey_label = "ホットキー: なし".to_string();
     let mut hotkey_warning = None;
     if let Some(spec) = &hotkey {
@@ -178,6 +188,7 @@ unsafe fn run(hotkey: Option<HotkeySpec>) {
             hwnd,
             hotkey,
             hotkey_label,
+            startup_args,
             font: tray::pick_icon_font(),
             icon: null_mut(),
             icon_added: false,
@@ -337,8 +348,13 @@ fn is_light_taskbar() -> bool {
 
 fn show_menu(hwnd: HWND, x: i32, y: i32) {
     // TrackPopupMenuEx はモーダルループで WM_TIMER などを配送するので、借用を持ったまま入らない
-    let Some((saver, hotkey_label)) = with_app(|a| (a.is_saver_active(), a.hotkey_label.clone())) else { return };
+    let Some((saver, hotkey_label, startup_args)) =
+        with_app(|a| (a.is_saver_active(), a.hotkey_label.clone(), a.startup_args.clone()))
+    else {
+        return;
+    };
     let index = current_index();
+    let startup_on = startup::is_enabled();
 
     unsafe {
         let menu = CreatePopupMenu();
@@ -355,6 +371,8 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
         }
         AppendMenuW(menu, MF_SEPARATOR, 0, null());
         AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, wide(&hotkey_label).as_ptr());
+        let startup_flags = if startup_on { MF_STRING | MF_CHECKED } else { MF_STRING };
+        AppendMenuW(menu, startup_flags, CMD_STARTUP as usize, wide("Windows 起動時に実行").as_ptr());
         AppendMenuW(menu, MF_SEPARATOR, 0, null());
         AppendMenuW(menu, MF_STRING, CMD_EXIT as usize, wide("終了").as_ptr());
 
@@ -365,11 +383,24 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
 
         match cmd {
             c if (CMD_MODE_BASE..CMD_MODE_BASE + MODES.len() as u32).contains(&c) => apply((c - CMD_MODE_BASE) as usize),
+            CMD_STARTUP => toggle_startup(hwnd, startup_on, &startup_args),
             CMD_EXIT => {
                 DestroyWindow(hwnd);
             }
             _ => {}
         }
+    }
+}
+
+/// 自動起動の有効・無効を切り替える。
+fn toggle_startup(hwnd: HWND, currently_on: bool, args: &str) {
+    let ok = if currently_on { startup::disable() } else { startup::enable(args) };
+    if !ok {
+        tray::notify(hwnd, "電源モード", "自動起動の設定を変更できませんでした。", true);
+    } else if currently_on {
+        tray::notify(hwnd, "電源モード", "Windows 起動時に実行しません。", false);
+    } else {
+        tray::notify(hwnd, "電源モード", "Windows 起動時に実行します。", false);
     }
 }
 

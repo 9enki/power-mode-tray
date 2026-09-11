@@ -6,12 +6,12 @@ A tiny tray app that cycles the Windows 11 power mode (Settings > System > Power
 with a single click on the tray icon or a hotkey.
 
 - **Left click / hotkey**: Best power efficiency → Balanced → Best performance → Best power efficiency …
-- **Right click**: pick a mode directly, see the current hotkey, or quit
+- **Right click**: pick a mode directly, see the current hotkey, turn "Start with Windows" on or off, or quit
 - The icon is a gauge from the standard Windows icon font (Segoe Fluent Icons). The needle position shows the mode: left for efficiency, center for balanced, right for performance
 - Follows changes made elsewhere, such as the Settings app, switching between AC and battery, or changing the light/dark theme
 - While Windows Energy Saver is active, no click, hotkey, or menu item changes the mode, matching the Settings app. The icon becomes a battery with a leaf, and both the tooltip and the menu explain why
 - A single executable of about 140 KB written in Rust against the Win32 API only. No GUI framework, no extra runtime, and about 2 MB of private memory while resident
-- No administrator rights, and no writes to the registry or disk
+- No administrator rights. Nothing is written to disk, and the only registry write is the opt-in "Start with Windows" entry
 
 ## Usage
 
@@ -31,6 +31,13 @@ PowerModeTray.exe [--hotkey <key>]
 - A second instance exits silently. To change arguments, quit from the right-click menu first, then start it again
 - Only the current power source (plugged in or on battery) is changed, matching the Settings app
 - Nothing changes while Energy Saver is active. Turning it off restores normal behavior. The state comes from both a power setting notification and `GetSystemPowerStatus`
+
+### Starting with Windows
+
+"Start with Windows" in the right-click menu turns auto-start on and off at any time. It is off by default.
+Turning it on writes one value under the per-user `Run` key that points at the executable and carries the
+current `--hotkey` setting. Turning it off removes that value. The entry also shows up under
+Startup apps in Task Manager, so it can be disabled from there as well.
 
 ### Keeping the icon out of the overflow menu
 
@@ -58,13 +65,17 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File install.ps1
 `%LOCALAPPDATA%\Programs\PowerModeTray\`, and starts it. The same command also updates an existing install.
 Because the destination never changes, the tray visibility setting survives updates.
 
+On a first install it asks whether to start the app at sign-in. Pass `-Startup` or `-NoStartup` to answer
+in advance, which is also what a non-interactive run needs. On an update the current setting is kept.
+
 | Option | Meaning |
 | --- | --- |
-| `-Hotkey Ctrl+Shift+F9` | Value passed as `--hotkey`. Defaults to the previous startup setting, or the built-in default |
-| `-Startup` | Place a shortcut in the Startup folder so the app launches at sign-in. Not done by default |
+| `-Hotkey Ctrl+Shift+F9` | Value passed as `--hotkey`. Defaults to the value already stored in the auto-start entry, or the built-in default |
+| `-Startup` | Start the app at sign-in |
+| `-NoStartup` | Do not start the app at sign-in |
 | `-NoBuild` | Skip the build and deploy the existing `bin\PowerModeTray.exe` |
 | `-NoLaunch` | Deploy without starting the app |
-| `-Uninstall` | Stop the app and remove the install folder and the Startup shortcut |
+| `-Uninstall` | Stop the app and remove the install folder and the auto-start entry |
 
 ### winget
 
@@ -78,7 +89,8 @@ winget upgrade 9enki.PowerModeTray
 
 ## About side effects
 
-- Nothing is written to the registry, to disk, or to any setting. Switching the mode is the same API call the Settings app makes
+- Nothing is written to disk. Switching the mode is the same API call the Settings app makes
+- The only registry write is the "Start with Windows" value, created only when you turn that option on and deleted when you turn it off
 - No administrator rights. The manifest declares `asInvoker`
 - Only the current power source (AC or battery) is touched. The other one is left alone
 - The hotkey is a `RegisterHotKey` registration and is released when the app exits
@@ -95,8 +107,7 @@ Measured while resident on real hardware (Windows 11, 150% DPI):
 | CPU while idle | too small to measure. It reads the state once every 2 seconds |
 | Threads / handles | 6 / about 140 |
 
-Switching modes also leaves all 3611 power-related registry values unchanged, writes nothing to AppData,
-and registers no startup entry.
+Switching modes also leaves all 3611 power-related registry values unchanged and writes nothing to AppData.
 
 ## How it works
 
@@ -132,6 +143,7 @@ for the version resource and the application manifest.
 | `src/tray.rs` | Icon rendering (icon-font glyphs drawn with GDI) and Shell_NotifyIcon |
 | `src/power.rs` | Reading and writing the power mode via powrprof.dll, plus the Energy Saver state |
 | `src/hotkey.rs` / `src/cli.rs` | Hotkey notation and command-line parsing, with unit tests |
+| `src/startup.rs` | Reading and writing the "Start with Windows" entry |
 | `build.rs` / `app.manifest` | Embeds the version resource and the manifest declaring no elevation and per-monitor DPI awareness |
 | `Cargo.toml` | Dependencies and version |
 | `build.ps1` / `test.ps1` / `install.ps1` | Build, test, and personal install |
