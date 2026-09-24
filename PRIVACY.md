@@ -2,7 +2,7 @@
 
 **PowerModeTray does not collect, store, or transmit any personal data.**
 
-Last updated: 2026-09-11
+Last updated: 2026-09-24
 
 ## What the app does
 
@@ -15,6 +15,10 @@ If you turn on "Start with Windows" from the tray menu, the app writes a single 
 `PowerModeTray` under the per-user key
 `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, holding the path to the
 executable. Turning the option off deletes that value. Nothing else is ever written.
+
+The Microsoft Store (MSIX) version does not write to the `Run` key. There, the same option turns the
+package's startup task on or off through the Windows `StartupTask` API, and Windows keeps that state
+itself. It is the same switch as Settings > Apps > Startup.
 
 ## Data collection
 

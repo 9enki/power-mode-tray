@@ -58,7 +58,8 @@
                          Square310x310Logo="Assets\Square310x310Logo.png" />
       </uap:VisualElements>
       <Extensions>
-        <!-- ログイン時の自動起動。既定は無効で、利用者が 設定 > アプリ > スタートアップ でオンにする -->
+        <!-- ログイン時の自動起動。既定は無効。アプリの右クリックメニュー（StartupTask API）か 設定 > アプリ > スタートアップ で
+             切り替える。TaskId は src/startup.rs の TASK_ID と一致させる -->
         <desktop:Extension Category="windows.startupTask" Executable="PowerModeTray.exe" EntryPoint="Windows.FullTrustApplication">
           <desktop:StartupTask TaskId="PowerModeTrayStartup" Enabled="false" DisplayName="PowerModeTray" />
         </desktop:Extension>

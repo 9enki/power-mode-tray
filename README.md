@@ -12,9 +12,9 @@ with a single click on the tray icon or a hotkey.
 - The icon is a gauge from the standard Windows icon font (Segoe Fluent Icons). The needle position shows the mode: left for efficiency, center for balanced, right for performance
 - Follows changes made elsewhere, such as the Settings app, switching between AC and battery, or changing the light/dark theme
 - While Windows Energy Saver is active, no click, hotkey, or menu item changes the mode, matching the Settings app. The icon becomes a battery with a leaf, and both the tooltip and the menu explain why
-- A single executable of about 140 KB written in Rust against the Win32 API only. No GUI framework, no extra runtime, and about 2 MB of private memory while resident
+- A single executable of about 190 KB written in Rust against the Win32 API only. No GUI framework, no extra runtime, and about 2 MB of private memory while resident
 - Speaks 11 languages and follows the Windows display language
-- No administrator rights. Nothing is written to disk, and the only registry write is the opt-in "Start with Windows" entry
+- No administrator rights. Nothing is written to disk, and the only registry write is the opt-in "Start with Windows" entry. The Microsoft Store build toggles the Windows startup task instead and writes nothing
 
 ## Usage
 
@@ -53,6 +53,13 @@ were produced without a native speaker review, so corrections are welcome as iss
 Turning it on writes one value under the per-user `Run` key that points at the executable and carries the
 current `--hotkey` setting. Turning it off removes that value. The entry also shows up under
 Startup apps in Task Manager, so it can be disabled from there as well.
+
+The Microsoft Store (MSIX) build cannot use the `Run` key: registry writes from a packaged app land in a
+private hive that Explorer never reads, and an executable under `WindowsApps` cannot be launched from there
+anyway. That build therefore toggles the package's startup task through the Windows `StartupTask` API.
+It is the same switch as Settings > Apps > Startup. If it was turned off there, the menu item cannot turn
+it back on and opens that page instead. The startup task launches the app without arguments, so the Store
+build always starts with the default hotkey.
 
 ### Keeping the icon out of the overflow menu
 
@@ -105,7 +112,7 @@ winget upgrade 9enki.PowerModeTray
 ## About side effects
 
 - Nothing is written to disk. Switching the mode is the same API call the Settings app makes
-- The only registry write is the "Start with Windows" value, created only when you turn that option on and deleted when you turn it off
+- The only registry write is the "Start with Windows" value, created only when you turn that option on and deleted when you turn it off. The Store build toggles the Windows startup task instead
 - No administrator rights. The manifest declares `asInvoker`
 - Only the current power source (AC or battery) is touched. The other one is left alone
 - The hotkey is a `RegisterHotKey` registration and is released when the app exits
@@ -159,7 +166,7 @@ for the version resource and the application manifest.
 | `src/power.rs` | Reading and writing the power mode via powrprof.dll, plus the Energy Saver state |
 | `src/hotkey.rs` / `src/cli.rs` | Hotkey notation and command-line parsing, with unit tests |
 | `src/i18n.rs` | Interface strings for every supported language and the language detection |
-| `src/startup.rs` | Reading and writing the "Start with Windows" entry |
+| `src/startup.rs` | Reading and writing the "Start with Windows" setting: the `Run` key, or the startup task in the MSIX build |
 | `build.rs` / `app.manifest` | Embeds the version resource and the manifest declaring no elevation and per-monitor DPI awareness |
 | `Cargo.toml` | Dependencies and version |
 | `build.ps1` / `test.ps1` / `install.ps1` | Build, test, and personal install |

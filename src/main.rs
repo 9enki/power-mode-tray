@@ -10,8 +10,8 @@
 //!   アイコン   : Windows 標準アイコンフォントのゲージ。針が 左=電力効率 / 中央=バランス / 右=パフォーマンス
 //!   節約機能   : Windows のバッテリー節約機能が有効な間は設定アプリと同じく切り替え不可。
 //!                アイコンを葉付きバッテリーに変え、ツールチップとメニューで理由を示す
-//!   自動起動   : 右クリックメニューでいつでも切り替えられる。有効にしたときだけ
-//!                ユーザー単位の Run キーに値を 1 つ書く（既定は無効）
+//!   自動起動   : 右クリックメニューでいつでも切り替えられる（既定は無効）。通常の exe はユーザー単位の
+//!                Run キーに値を 1 つ書き、MSIX（Store 版）はパッケージの StartupTask を切り替える
 //!   表示言語   : Windows の表示言語に合わせる（11 言語、未対応なら英語）。--lang で固定できる
 //!
 //! 切り替え対象は設定アプリと同じく「現在の電源（AC 接続時 / バッテリー駆動時）」側のみ。
@@ -38,7 +38,7 @@ use windows_sys::Win32::System::Power::{
 };
 use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{RegisterHotKey, UnregisterHotKey};
-use windows_sys::Win32::UI::Shell::NIN_SELECT;
+use windows_sys::Win32::UI::Shell::{ShellExecuteW, NIN_SELECT};
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 use cli::Command;
@@ -94,7 +94,7 @@ struct App {
     hwnd: HWND,
     hotkey: Option<HotkeySpec>,
     hotkey_label: String,
-    /// 自動起動の Run キーに書く引数。今の起動引数をそのまま引き継ぐ
+    /// 自動起動（Run キー方式）に引き継ぐ引数。今の起動引数をそのまま使う。StartupTask には引数を渡せない
     startup_args: String,
     font: Vec<u16>,
     icon: HICON,
@@ -406,13 +406,24 @@ fn show_menu(hwnd: HWND, x: i32, y: i32) {
 /// 自動起動の有効・無効を切り替える。
 fn toggle_startup(hwnd: HWND, currently_on: bool, args: &str) {
     let text = i18n::s();
-    let ok = if currently_on { startup::disable() } else { startup::enable(args) };
-    if !ok {
-        tray::notify(hwnd, text.notify_title, text.startup_failed, true);
-    } else if currently_on {
-        tray::notify(hwnd, text.notify_title, text.startup_off, false);
-    } else {
-        tray::notify(hwnd, text.notify_title, text.startup_on, false);
+    if currently_on {
+        if startup::disable() {
+            tray::notify(hwnd, text.notify_title, text.startup_off, false);
+        } else {
+            tray::notify(hwnd, text.notify_title, text.startup_failed, true);
+        }
+        return;
+    }
+    match startup::enable(args) {
+        Ok(()) => tray::notify(hwnd, text.notify_title, text.startup_on, false),
+        Err(startup::EnableError::DisabledInSettings) => {
+            // Windows の設定で切られている分はアプリからは戻せないので、その画面を開いて任せる
+            tray::notify(hwnd, text.notify_title, text.startup_needs_settings, true);
+            unsafe {
+                ShellExecuteW(hwnd, null(), wide("ms-settings:startupapps").as_ptr(), null(), null(), SW_SHOWNORMAL);
+            }
+        }
+        Err(startup::EnableError::Failed) => tray::notify(hwnd, text.notify_title, text.startup_failed, true),
     }
 }
 

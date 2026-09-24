@@ -30,6 +30,7 @@ pub struct Strings {
     pub startup_failed: &'static str,
     pub startup_on: &'static str,
     pub startup_off: &'static str,
+    pub startup_needs_settings: &'static str, // Store 版で、Windows の設定側で無効にされているとき
     pub window_failed: &'static str,
 
     pub usage: &'static str,
@@ -73,6 +74,7 @@ const EN: Strings = Strings {
     startup_failed: "Could not change the startup setting.",
     startup_on: "PowerModeTray will start with Windows.",
     startup_off: "PowerModeTray will no longer start with Windows.",
+    startup_needs_settings: "Startup is turned off for this app in Windows Settings. Turn it on under Settings > Apps > Startup.",
     window_failed: "Could not create the window.",
     usage: usage!(
         "Usage: PowerModeTray.exe [--hotkey <key>] [--lang <lang>]",
@@ -108,6 +110,7 @@ const JA: Strings = Strings {
     startup_failed: "自動起動の設定を変更できませんでした。",
     startup_on: "Windows 起動時に実行します。",
     startup_off: "Windows 起動時に実行しません。",
+    startup_needs_settings: "Windows の設定でこのアプリの自動起動がオフになっています。設定 > アプリ > スタートアップ でオンにしてください。",
     window_failed: "ウィンドウを作成できませんでした。",
     usage: usage!(
         "使い方: PowerModeTray.exe [--hotkey <キー>] [--lang <言語>]",
@@ -143,6 +146,7 @@ const ZH_HANS: Strings = Strings {
     startup_failed: "无法更改开机启动设置。",
     startup_on: "PowerModeTray 将在开机时启动。",
     startup_off: "PowerModeTray 将不再在开机时启动。",
+    startup_needs_settings: "此应用的开机启动已在 Windows 设置中关闭。请在 设置 > 应用 > 启动 中开启。",
     window_failed: "无法创建窗口。",
     usage: usage!(
         "用法: PowerModeTray.exe [--hotkey <按键>] [--lang <语言>]",
@@ -178,6 +182,7 @@ const ZH_HANT: Strings = Strings {
     startup_failed: "無法變更開機啟動設定。",
     startup_on: "PowerModeTray 將在開機時啟動。",
     startup_off: "PowerModeTray 將不再於開機時啟動。",
+    startup_needs_settings: "此應用程式的開機啟動已在 Windows 設定中關閉。請在 設定 > 應用程式 > 啟動 中開啟。",
     window_failed: "無法建立視窗。",
     usage: usage!(
         "用法: PowerModeTray.exe [--hotkey <按鍵>] [--lang <語言>]",
@@ -213,6 +218,7 @@ const KO: Strings = Strings {
     startup_failed: "시작 프로그램 설정을 변경할 수 없습니다.",
     startup_on: "PowerModeTray가 Windows 시작 시 실행됩니다.",
     startup_off: "PowerModeTray가 더 이상 Windows 시작 시 실행되지 않습니다.",
+    startup_needs_settings: "Windows 설정에서 이 앱의 시작 프로그램이 꺼져 있습니다. 설정 > 앱 > 시작 프로그램 에서 켜 주세요.",
     window_failed: "창을 만들 수 없습니다.",
     usage: usage!(
         "사용법: PowerModeTray.exe [--hotkey <키>] [--lang <언어>]",
@@ -248,6 +254,7 @@ const DE: Strings = Strings {
     startup_failed: "Die Autostart-Einstellung konnte nicht geändert werden.",
     startup_on: "PowerModeTray wird mit Windows gestartet.",
     startup_off: "PowerModeTray wird nicht mehr mit Windows gestartet.",
+    startup_needs_settings: "Der Autostart dieser App ist in den Windows-Einstellungen deaktiviert. Aktivieren Sie ihn unter Einstellungen > Apps > Autostart.",
     window_failed: "Das Fenster konnte nicht erstellt werden.",
     usage: usage!(
         "Verwendung: PowerModeTray.exe [--hotkey <Taste>] [--lang <Sprache>]",
@@ -283,6 +290,7 @@ const FR: Strings = Strings {
     startup_failed: "Impossible de modifier le démarrage automatique.",
     startup_on: "PowerModeTray démarrera avec Windows.",
     startup_off: "PowerModeTray ne démarrera plus avec Windows.",
+    startup_needs_settings: "Le démarrage automatique de cette application est désactivé dans les paramètres Windows. Activez-le dans Paramètres > Applications > Démarrage.",
     window_failed: "Impossible de créer la fenêtre.",
     usage: usage!(
         "Utilisation : PowerModeTray.exe [--hotkey <touche>] [--lang <langue>]",
@@ -318,6 +326,7 @@ const ES: Strings = Strings {
     startup_failed: "No se pudo cambiar la configuración de inicio.",
     startup_on: "PowerModeTray se iniciará con Windows.",
     startup_off: "PowerModeTray ya no se iniciará con Windows.",
+    startup_needs_settings: "El inicio automático de esta aplicación está desactivado en la configuración de Windows. Actívelo en Configuración > Aplicaciones > Inicio.",
     window_failed: "No se pudo crear la ventana.",
     usage: usage!(
         "Uso: PowerModeTray.exe [--hotkey <tecla>] [--lang <idioma>]",
@@ -353,6 +362,7 @@ const PT: Strings = Strings {
     startup_failed: "Não foi possível alterar a configuração de inicialização.",
     startup_on: "O PowerModeTray será iniciado com o Windows.",
     startup_off: "O PowerModeTray não será mais iniciado com o Windows.",
+    startup_needs_settings: "A inicialização automática deste aplicativo está desativada nas configurações do Windows. Ative-a em Configurações > Aplicativos > Inicialização.",
     window_failed: "Não foi possível criar a janela.",
     usage: usage!(
         "Uso: PowerModeTray.exe [--hotkey <tecla>] [--lang <idioma>]",
@@ -388,6 +398,7 @@ const IT: Strings = Strings {
     startup_failed: "Impossibile modificare l'impostazione di avvio.",
     startup_on: "PowerModeTray verrà avviato con Windows.",
     startup_off: "PowerModeTray non verrà più avviato con Windows.",
+    startup_needs_settings: "L'avvio automatico di questa app è disattivato nelle impostazioni di Windows. Attivalo in Impostazioni > App > Avvio.",
     window_failed: "Impossibile creare la finestra.",
     usage: usage!(
         "Uso: PowerModeTray.exe [--hotkey <tasto>] [--lang <lingua>]",
@@ -423,6 +434,7 @@ const RU: Strings = Strings {
     startup_failed: "Не удалось изменить параметр автозапуска.",
     startup_on: "PowerModeTray будет запускаться вместе с Windows.",
     startup_off: "PowerModeTray больше не будет запускаться вместе с Windows.",
+    startup_needs_settings: "Автозапуск этого приложения отключён в параметрах Windows. Включите его в разделе Параметры > Приложения > Автозагрузка.",
     window_failed: "Не удалось создать окно.",
     usage: usage!(
         "Использование: PowerModeTray.exe [--hotkey <клавиша>] [--lang <язык>]",
@@ -654,6 +666,7 @@ mod tests {
                 ("startup_failed", t.startup_failed),
                 ("startup_on", t.startup_on),
                 ("startup_off", t.startup_off),
+                ("startup_needs_settings", t.startup_needs_settings),
                 ("window_failed", t.window_failed),
                 ("usage", t.usage),
                 ("arg_hotkey_needs_value", t.arg_hotkey_needs_value),
